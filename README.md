@@ -399,7 +399,7 @@ Steps to Install and Use Postman for Sending a POST Request
 - Click on the **Body** tab below the URL field.
 - Select the **x-www-form-urlencoded** option.
 <p align="center">
-  <img src="./images/postman_1.png" alt="Postman" width="200"/>
+  <img src="./images/postman_1.png" alt="Postman" width="800"/>
 </p>
 
 6. **Enter Your Data**
