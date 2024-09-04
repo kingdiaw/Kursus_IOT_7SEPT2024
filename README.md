@@ -377,3 +377,31 @@ The browser should display the following JSON output:
 ```json
 {"matrix_number":"18DTK23F1001","name":"John Doe","room_number":"A101"}
 ```
+## Testing POST Method
+Steps to Install and Use Postman for Sending a POST Request
+
+1. **Install Postman for Windows**
+- Download the installer from [this link](https://dl.pstmn.io/download/latest/win64).
+- Run the installer and follow the on-screen instructions to complete the installation.
+
+2. **Open Postman and Create a New Request**
+- Launch Postman after installation.
+- Click on **New** and select **Request**.
+
+3. **Set the Request Type to POST**
+- In the new request window, find the dropdown menu next to the request URL field.
+- Select **POST** from the dropdown options.
+
+4. **Enter the Request URL**
+- In the URL field, enter the following URL:`http://localhost/Kursus_IOT_7SEPT2024/api/index.php?matrix_number=18DEP23F1045`
+
+5. **Go to the Body Tab and Select x-www-form-urlencoded**
+- Click on the **Body** tab below the URL field.
+- Select the **x-www-form-urlencoded** option.
+
+6. **Enter Your Data**
+- In the key-value fields that appear, enter your data.
+
+7. **Click Send to Make the Request**
+- Once all the data is entered, click the **Send** button.
+- Postman will send the request to the specified URL, and you can view the response in the lower panel.
