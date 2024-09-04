@@ -213,25 +213,27 @@ Write an Arduino code for the ESP8266 that reads the RFID card's unique ID and s
 - MFRC522: For interfacing with the RFID module.
 - WiFi: To connect to the WiFi network.
 - HTTPClient: To make HTTP requests to the API.
+- ArduinoJson: To handle JSON parsing
 
 You can install these libraries via the Arduino Library Manager.
 **Arduino Code**
 ```cpp
-#include <WiFi.h>
-#include <HTTPClient.h>
+#include <ESP8266WiFi.h>
+#include <ESP8266HTTPClient.h>
 #include <MFRC522.h>
 #include <SPI.h>
+#include <ArduinoJson.h>
 
 // Replace these with your network credentials
 const char* ssid = "your_SSID";
 const char* password = "your_PASSWORD";
 
 // Replace this with the URL of your PHP script
-const char* serverName = "http://yourserver.com//Kursus_IOT_7SEPT2024/api/index.php?";
+const char* serverName = "http://your_ip/Kursus_IOT_7SEPT2024/api/index.php";
 
 // Initialize RFID
-#define RST_PIN 22
-#define SS_PIN 21
+#define RST_PIN D3
+#define SS_PIN D4
 MFRC522 mfrc522(SS_PIN, RST_PIN);
 
 // Initialize WiFi
@@ -248,11 +250,11 @@ void setup() {
 
 void loop() {
   // Look for new RFID card
-  if ( ! mfrc522.PICC_IsNewCardPresent()) {
+  if (!mfrc522.PICC_IsNewCardPresent()) {
     return;
   }
 
-  if ( ! mfrc522.PICC_ReadCardSerial()) {
+  if (!mfrc522.PICC_ReadCardSerial()) {
     return;
   }
 
@@ -305,7 +307,21 @@ void getStudentData(const String& matrixNumber) {
       String payload = http.getString();
       Serial.println("GET Response Code: " + String(httpResponseCode));
       Serial.println("Payload: " + payload);
-      // You might want to parse the JSON payload to extract student name and room number
+      
+      // Parse JSON payload
+      DynamicJsonDocument doc(1024);
+      DeserializationError error = deserializeJson(doc, payload);
+      
+      if (!error) {
+        String matrix_number = doc["matrix_number"].as<String>();
+        String name = doc["name"].as<String>();
+        String room_number = doc["room_number"].as<String>();
+        
+        Serial.println("Student Name: " + name);
+        Serial.println("Room Number: " + room_number);
+      } else {
+        Serial.println("Failed to parse JSON");
+      }
     } else {
       Serial.println("Error on GET request");
     }
@@ -316,14 +332,14 @@ void getStudentData(const String& matrixNumber) {
   }
 }
 
-void recordCheckInCheckOut(const String& matrixNumber) {
+void recordCheckInCheckOut(const String& matrixNumber, const String& name, const String& roomNumber) {
   if (WiFi.status() == WL_CONNECTED) {
     HTTPClient http;
 
     http.begin(serverName);
     http.addHeader("Content-Type", "application/x-www-form-urlencoded");
 
-    String postData = "matrix_number=" + matrixNumber;
+    String postData = "matrix_number=" + matrixNumber + "&name=" + name + "&room_number=" + roomNumber;
     int httpResponseCode = http.POST(postData);
 
     if (httpResponseCode > 0) {
@@ -339,6 +355,7 @@ void recordCheckInCheckOut(const String& matrixNumber) {
     Serial.println("Error in WiFi connection");
   }
 }
+
 ```
 You can copy and paste this code into your respective project files and start implementing your project.
 ## Testing:
