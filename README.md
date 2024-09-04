@@ -30,13 +30,14 @@ USE hostel_management;
 ```
 
 **Table Creation**
-- **student_checkin_checkout**: Stores check-in/check-out records with `matrix_number` as the primary key.
+- **student_checkin_checkout**: Stores check-in/check-out records with `id` as the primary key.
 - **student_data**: Stores student information with `matrix_number` as the primary key.
 
 ```sql
 -- Create a table to store student check-in/check-out records
 CREATE TABLE IF NOT EXISTS student_checkin_checkout (
-    matrix_number VARCHAR(20) PRIMARY KEY,
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    matrix_number VARCHAR(20) NOT NULL,
     name VARCHAR(100) NOT NULL,
     room_number VARCHAR(10) NOT NULL,
     checkin_time DATETIME NOT NULL,
@@ -89,6 +90,9 @@ Create a PHP script in the `htdocs` directory with the following logic:
 
 header("Content-Type: application/json");
 
+// Set the default timezone to Kuala Lumpur, Malaysia
+date_default_timezone_set('Asia/Kuala_Lumpur');
+
 // Database connection parameters
 $servername = "localhost";
 $username = "root";
@@ -132,35 +136,44 @@ switch ($method) {
             $matrix_number = $conn->real_escape_string($_POST['matrix_number']);
 
             // Check if the record for this matrix number exists
-            $sql = "SELECT * FROM student_checkin_checkout WHERE matrix_number = '$matrix_number'";
+            $sql = "SELECT * FROM student_checkin_checkout WHERE matrix_number = '$matrix_number' ORDER BY checkin_time DESC LIMIT 1";
             $result = $conn->query($sql);
             
             if ($result->num_rows > 0) {
                 $row = $result->fetch_assoc();
-                if (empty($row['checkin_time'])) {
-                    // Update check-in time if it's empty
-                    $checkin_time = date('Y-m-d H:i:s');
-                    $update_sql = "UPDATE student_checkin_checkout 
-                                   SET checkin_time = '$checkin_time'
-                                   WHERE matrix_number = '$matrix_number'";
-                    if ($conn->query($update_sql) === TRUE) {
-                        echo json_encode(array("status" => "success", "message" => "Check-in time updated successfully"));
+                
+                if (!empty($row['checkin_time']) && !is_null($row['checkout_time'])) {
+                    // Insert a new record if both check-in and check-out are recorded
+                    if (isset($_POST['name']) && isset($_POST['room_number'])) {
+                        $name = $conn->real_escape_string($_POST['name']);
+                        $room_number = $conn->real_escape_string($_POST['room_number']);
+                        $checkin_time = date('Y-m-d H:i:s'); // Set new check-in time
+                        
+                        $insert_sql = "INSERT INTO student_checkin_checkout (name, matrix_number, room_number, checkin_time)
+                                       VALUES ('$name', '$matrix_number', '$room_number', '$checkin_time')";
+
+                        if ($conn->query($insert_sql) === TRUE) {
+                            echo json_encode(array("status" => "success", "message" => "New record created and check-in time set"));
+                        } else {
+                            echo json_encode(array("status" => "error", "message" => "Error: " . $conn->error));
+                        }
                     } else {
-                        echo json_encode(array("status" => "error", "message" => "Error: " . $conn->error));
+                        echo json_encode(array("status" => "error", "message" => "Name or room number not provided"));
                     }
-                } elseif (!empty($row['checkin_time']) && empty($row['checkout_time'])) {
+                        
+                } elseif (is_null($row['checkout_time'])) {
                     // Update check-out time if check-in exists but check-out is empty
                     $checkout_time = date('Y-m-d H:i:s');
                     $update_sql = "UPDATE student_checkin_checkout 
                                    SET checkout_time = '$checkout_time'
-                                   WHERE matrix_number = '$matrix_number'";
+                                   WHERE matrix_number = '$matrix_number' AND checkin_time = '{$row['checkin_time']}'";
                     if ($conn->query($update_sql) === TRUE) {
                         echo json_encode(array("status" => "success", "message" => "Check-out time updated successfully"));
                     } else {
                         echo json_encode(array("status" => "error", "message" => "Error: " . $conn->error));
                     }
                 } else {
-                    echo json_encode(array("status" => "error", "message" => "Check-out time already recorded"));
+                    echo json_encode(array("status" => "error", "message" => "Unexpected condition met"));
                 }
             } else {
                 // Insert new record if none exists
@@ -179,21 +192,18 @@ switch ($method) {
                     }
                 } else {
                     echo json_encode(array("status" => "error", "message" => "Name or room number not provided"));
-                }
-            }
+                }                    
+            }               
         } else {
             echo json_encode(array("status" => "error", "message" => "Matrix number not provided"));
         }
         break;
-
     default:
         echo json_encode(array("status" => "error", "message" => "Unsupported HTTP method"));
         break;
 }
-
 // Close the database connection
 $conn->close();
-
 ?>
 ```
 ## Phase 3: Arduino Code for ESP8266
@@ -216,51 +226,118 @@ You can install these libraries via the Arduino Library Manager.
 const char* ssid = "your_SSID";
 const char* password = "your_PASSWORD";
 
-// RFID setup
-#define RST_PIN 9
-#define SS_PIN 10
-MFRC522 rfid(SS_PIN, RST_PIN);
+// Replace this with the URL of your PHP script
+const char* serverName = "http://yourserver.com//Kursus_IOT_7SEPT2024/api/index.php?";
 
+// Initialize RFID
+#define RST_PIN 22
+#define SS_PIN 21
+MFRC522 mfrc522(SS_PIN, RST_PIN);
+
+// Initialize WiFi
 void setup() {
   Serial.begin(115200);
+  connectToWiFi();
+  
+  // Initialize RFID
   SPI.begin();
-  rfid.PCD_Init();
+  mfrc522.PCD_Init();
 
-  // Connect to Wi-Fi
-  WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(1000);
-    Serial.println("Connecting to WiFi...");
-  }
-  Serial.println("Connected to WiFi");
+  Serial.println("Place your RFID card on the reader");
 }
 
 void loop() {
-  if (rfid.PICC_IsNewCardPresent() && rfid.PICC_ReadCardSerial()) {
-    String matrix_number = "";
-    for (byte i = 0; i < rfid.uid.size; i++) {
-      matrix_number += String(rfid.uid.uidByte[i], HEX);
+  // Look for new RFID card
+  if ( ! mfrc522.PICC_IsNewCardPresent()) {
+    return;
+  }
+
+  if ( ! mfrc522.PICC_ReadCardSerial()) {
+    return;
+  }
+
+  // Read RFID UID
+  String matrix_number = "";
+  for (byte i = 0; i < mfrc522.uid.size; i++) {
+    matrix_number += String(mfrc522.uid.uidByte[i] < 0x10 ? "0" : "");
+    matrix_number += String(mfrc522.uid.uidByte[i], HEX);
+  }
+  matrix_number.toUpperCase();
+
+  Serial.print("Matrix Number: ");
+  Serial.println(matrix_number);
+
+  // Get student data
+  getStudentData(matrix_number);
+
+  // Record check-in/check-out
+  recordCheckInCheckOut(matrix_number);
+
+  // Halt PICC
+  mfrc522.PICC_HaltA();
+  mfrc522.PCD_StopCrypto1();
+}
+
+void connectToWiFi() {
+  WiFi.begin(ssid, password);
+  Serial.print("Connecting to ");
+  Serial.print(ssid);
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  Serial.println("\nConnected!");
+  Serial.print("IP Address: ");
+  Serial.println(WiFi.localIP());
+}
+
+void getStudentData(const String& matrixNumber) {
+  if (WiFi.status() == WL_CONNECTED) {
+    HTTPClient http;
+    String url = String(serverName) + "?matrix_number=" + matrixNumber;
+
+    http.begin(url);
+    int httpResponseCode = http.GET();
+
+    if (httpResponseCode > 0) {
+      String payload = http.getString();
+      Serial.println("GET Response Code: " + String(httpResponseCode));
+      Serial.println("Payload: " + payload);
+      // You might want to parse the JSON payload to extract student name and room number
+    } else {
+      Serial.println("Error on GET request");
     }
 
-    // Send matrix number to server
-    if (WiFi.status() == WL_CONNECTED) {
-      HTTPClient http;
-      http.begin("http://your-server-ip-address/your-php-script.php?matrix_number=" + matrix_number);
-      
-      int httpResponseCode = http.GET();
-      if (httpResponseCode > 0) {
-        String response = http.getString();
-        Serial.println("Server Response: " + response);
-      } else {
-        Serial.println("Error in sending request");
-      }
-      http.end();
-    }
-    
-    // Halt PICC to prevent repeated reads
-    rfid.PICC_HaltA();
+    http.end();
+  } else {
+    Serial.println("Error in WiFi connection");
   }
-  delay(1000);
+}
+
+void recordCheckInCheckOut(const String& matrixNumber) {
+  if (WiFi.status() == WL_CONNECTED) {
+    HTTPClient http;
+
+    http.begin(serverName);
+    http.addHeader("Content-Type", "application/x-www-form-urlencoded");
+
+    String postData = "matrix_number=" + matrixNumber;
+    int httpResponseCode = http.POST(postData);
+
+    if (httpResponseCode > 0) {
+      String payload = http.getString();
+      Serial.println("POST Response Code: " + String(httpResponseCode));
+      Serial.println("Payload: " + payload);
+    } else {
+      Serial.println("Error on POST request");
+    }
+
+    http.end();
+  } else {
+    Serial.println("Error in WiFi connection");
+  }
 }
 ```
 You can copy and paste this code into your respective project files and start implementing your project.
