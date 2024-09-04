@@ -264,3 +264,22 @@ void loop() {
 }
 ```
 You can copy and paste this code into your respective project files and start implementing your project.
+## Testing:
+1. **Clone the Repository**
+   Navigate to the htdocs directory in your XAMPP installation and execute the following command to clone the project repository:
+```bash
+git clone https://github.com/kingdiaw/Kursus_IOT_7SEPT2024.git
+```
+2. **Start the XAMPP Server**
+Ensure that the Apache server in XAMPP is running.
+
+3. **Access the API**
+   Open your web browser and enter the following URL to test the API:
+```plaintext
+http://localhost/Kursus_IOT_7SEPT2024/api/index.php?matrix_number=18DTK23F1001
+```
+4. **Expected Output**
+The browser should display the following JSON output:
+```json
+{"matrix_number":"18DTK23F1001","name":"John Doe","room_number":"A101"}
+```
