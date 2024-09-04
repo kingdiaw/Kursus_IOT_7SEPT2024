@@ -220,50 +220,29 @@ You can install these libraries via the Arduino Library Manager.
 ```cpp
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
-#include <MFRC522.h>
-#include <SPI.h>
 #include <ArduinoJson.h>
 
 // Replace these with your network credentials
-const char* ssid = "your_SSID";
-const char* password = "your_PASSWORD";
+const char* ssid = "tomato";
+const char* password = "king@535382+1";
 
 // Replace this with the URL of your PHP script
-const char* serverName = "http://your_ip/Kursus_IOT_7SEPT2024/api/index.php";
+const char* serverName = "http://192.168.0.13/Kursus_IOT_7SEPT2024/api/index.php";
 
-// Initialize RFID
-#define RST_PIN D3
-#define SS_PIN D4
-MFRC522 mfrc522(SS_PIN, RST_PIN);
+String name = "";
+String room_number = "";
+String matrix_number = "";
+String m[3] = {"18DTK23F1001", "18DEO22F1088", "18DEP23F1045"};
 
 // Initialize WiFi
 void setup() {
   Serial.begin(115200);
   connectToWiFi();
-  
-  // Initialize RFID
-  SPI.begin();
-  mfrc522.PCD_Init();
-
-  Serial.println("Place your RFID card on the reader");
 }
 
 void loop() {
-  // Look for new RFID card
-  if (!mfrc522.PICC_IsNewCardPresent()) {
-    return;
-  }
-
-  if (!mfrc522.PICC_ReadCardSerial()) {
-    return;
-  }
-
-  // Read RFID UID
-  String matrix_number = "";
-  for (byte i = 0; i < mfrc522.uid.size; i++) {
-    matrix_number += String(mfrc522.uid.uidByte[i] < 0x10 ? "0" : "");
-    matrix_number += String(mfrc522.uid.uidByte[i], HEX);
-  }
+  int index = random(0, 3);
+  matrix_number = m[index];
   matrix_number.toUpperCase();
 
   Serial.print("Matrix Number: ");
@@ -273,11 +252,8 @@ void loop() {
   getStudentData(matrix_number);
 
   // Record check-in/check-out
-  recordCheckInCheckOut(matrix_number);
-
-  // Halt PICC
-  mfrc522.PICC_HaltA();
-  mfrc522.PCD_StopCrypto1();
+  recordCheckInCheckOut(matrix_number, name, room_number);
+  delay(10000);
 }
 
 void connectToWiFi() {
@@ -297,10 +273,11 @@ void connectToWiFi() {
 
 void getStudentData(const String& matrixNumber) {
   if (WiFi.status() == WL_CONNECTED) {
+    WiFiClient client;  // Create WiFiClient object
     HTTPClient http;
     String url = String(serverName) + "?matrix_number=" + matrixNumber;
 
-    http.begin(url);
+    http.begin(client, url);  // Pass WiFiClient object to begin()
     int httpResponseCode = http.GET();
 
     if (httpResponseCode > 0) {
@@ -314,8 +291,8 @@ void getStudentData(const String& matrixNumber) {
       
       if (!error) {
         String matrix_number = doc["matrix_number"].as<String>();
-        String name = doc["name"].as<String>();
-        String room_number = doc["room_number"].as<String>();
+        name = doc["name"].as<String>();
+        room_number = doc["room_number"].as<String>();
         
         Serial.println("Student Name: " + name);
         Serial.println("Room Number: " + room_number);
@@ -334,9 +311,10 @@ void getStudentData(const String& matrixNumber) {
 
 void recordCheckInCheckOut(const String& matrixNumber, const String& name, const String& roomNumber) {
   if (WiFi.status() == WL_CONNECTED) {
+    WiFiClient client;  // Create WiFiClient object
     HTTPClient http;
 
-    http.begin(serverName);
+    http.begin(client, serverName);  // Pass WiFiClient object to begin()
     http.addHeader("Content-Type", "application/x-www-form-urlencoded");
 
     String postData = "matrix_number=" + matrixNumber + "&name=" + name + "&room_number=" + roomNumber;
