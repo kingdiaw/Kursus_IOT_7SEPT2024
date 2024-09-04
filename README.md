@@ -2,11 +2,11 @@
 ## Project Overview
 Your role as a software engineer is to build an IoT project for monitoring student check-ins and check-outs at a hostel. The system will record the following information:
 
-- Name
-- Matrix Number
-- Room Number
-- Date
-- Timestamp
+- **Name**
+- **Matrix Number**
+- **Room Number**
+- **Date**
+- **Timestamp**
 
 **Hardware**: Key room's RFID card, ESP8266
 
