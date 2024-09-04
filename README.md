@@ -79,7 +79,7 @@ Create a PHP script in the `htdocs` directory with the following logic:
    - The script first checks if a record with the given `matrix_number` exists.
 2. Check-in/Check-out Logic:
    - **Check-in Time**: If `checkin_time` is empty, it updates the `checkin_time` with the current timestamp.
-   - **Check-out Time**: If `checkin_time` is set and `checkout_time` is empty, it updates the `checkout_time` with the current timestamp.
+   - **Check-out Time**: If `checkin_time` is set and `checkout_time` is null, it updates the `checkout_time` with the current timestamp.
 3. Insert New Record:
 - If the record does not exist, a new record is inserted with the provided `name`, `matrix_number`, `room_number`, and `checkin_time`.
 4. Unsupported Method:
